@@ -6,8 +6,6 @@
 #include "stmflash.h"
 #include "core_cm3.h"
 
-
-
 int32_t FlashJumpToApp(volatile uint32_t applicationAddress)
 {
 	uint32_t temp;
