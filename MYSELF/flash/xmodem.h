@@ -41,6 +41,7 @@ struct XmodemPotocol {
     uint8_t errCnt; /* 接收出错计数 */
     uint8_t time; /* 任务计数 */
     uint8_t *recBuff; /* 一包数据的接收缓冲区 */
+    uint8_t *data; /* 一包需要处理的完整数据 */
     uint16_t (*checkFunc)(uint8_t *data, uint32_t len); /* 校验函数 */
 };
 

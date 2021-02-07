@@ -16,7 +16,7 @@
 #define XMODEM_WORK_TIMEOUT 10
 //接收缓冲,最大20k个字节,起始地址为0X20001000. 
 static uint8_t g_uartRecbuff[XMODEM_BUFF_MAX] __attribute__((at(0X20001000)));
-static uint8_t g_recbuf[PACKAGE_LEN_1KXMODEM_CRC16] = {0};
+static uint8_t g_recbuf[2][PACKAGE_LEN_1KXMODEM_CRC16] = {0};
 static struct XmodemPotocol g_xmodem;
 
 struct XmodemPotocol *GetXmodemInfo(void)
@@ -34,7 +34,8 @@ static void XmodemInit(uint32_t address)
     info->packSize = PACKAGE_LEN_1KXMODEM_CRC16;
     info->dataSize = DATA_LEN_1KXMODEM;
     info->status = XMODEM_IDLE;
-    info->recBuff = g_recbuf;
+    info->recBuff = g_recbuf[0];
+    info->data = g_recbuf[1];
     info->checkFunc = XmodemCheckCRC16;
 }
 /*------------------------硬件层-------------------*/
@@ -49,6 +50,7 @@ static void XmodemResponse(uint8_t byte)
  */
 void XmodemReciveOneByte(uint8_t byte)
 {
+    static uint8_t i = 0;
     struct XmodemPotocol *info = GetXmodemInfo();
     info->recBuff[info->recCnt++] = byte;
     /* 一包数据接收完成 */
@@ -69,6 +71,9 @@ void XmodemReciveOneByte(uint8_t byte)
         } else {
            info->packSize = PACKAGE_LEN_XMODEM_SUM;
         }
+        info->data = g_recbuf[i % 2];
+        i++;
+        info->recBuff = g_recbuf[i % 2];
         info->dataSize = DATA_LEN_XMODEM;
         info->status = XMODEM_RECIVING;
         break;
@@ -78,6 +83,9 @@ void XmodemReciveOneByte(uint8_t byte)
         } else {
            info->packSize = PACKAGE_LEN_1KXMODEM_SUM;
         }
+        info->data = g_recbuf[i % 2];
+        i++;
+        info->recBuff = g_recbuf[i % 2];
         info->dataSize = DATA_LEN_1KXMODEM;
         info->status = XMODEM_RECIVING;
         break;
@@ -88,7 +96,6 @@ void XmodemReciveOneByte(uint8_t byte)
     default:
         break;
     }
-    
 }
 
 /*------------------------链路层-------------------*/
@@ -158,9 +165,9 @@ static int32_t XmodemParseOnePackedData(void)
     uint8_t packNum;
     uint16_t check = 0;
     struct XmodemPotocol *info = GetXmodemInfo();
-    packNum = info->recBuff[1];
+    packNum = info->data[1];
     /* 数据包序号不对重发 */
-    if (info->recBuff[2] != (~packNum)) {
+    if (info->data[2] != (~packNum)) {
         LOG_ERROR("xmodem packed number is error");
         return XMODEM_RET_ERROR;         
     }
@@ -170,13 +177,13 @@ static int32_t XmodemParseOnePackedData(void)
         return XMODEM_RET_ERROR;
     }
 
-    info->calCheck = info->checkFunc(info->recBuff + 3, info->dataSize);
+    info->calCheck = info->checkFunc(info->data + 3, info->dataSize);
     if (info->checkType == info->recCnt) {
-        check |= info->recBuff[info->packSize - 2];
+        check |= info->data[info->packSize - 2];
         check <<= 8;
-        check |= info->recBuff[info->packSize - 1];
+        check |= info->data[info->packSize - 1];
     } else {
-        check |= info->recBuff[info->packSize - 1];
+        check |= info->data[info->packSize - 1];
     }
     /* 数据包校验出错 */
     if (info->calCheck != check) {
@@ -192,7 +199,7 @@ static void XmodemProcessOnePackedData(void)
 {
     struct XmodemPotocol *info = GetXmodemInfo();
     /*写入到缓存中，满了20k再写入flash*/
-    memcpy_s(&g_uartRecbuff[info->recLen], info->recBuff + 3, info->dataSize);
+    memcpy_s(&g_uartRecbuff[info->recLen], info->data + 3, info->dataSize);
     info->recLen += info->dataSize;
     if (info->recLen >= XMODEM_BUFF_MAX) {
         FlashWrite(info->curAddr, &g_uartRecbuff, info->recLen / 2);
