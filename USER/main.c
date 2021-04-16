@@ -29,7 +29,7 @@ void TaskInit(void)
 }
 
 /* 
- * ÏÈ×ö¼òµ¥5ÃëÖ®ÄÚ°´ÏÂ°´¼ü½øÐÐÉý¼¶
+ * å…ˆåšç®€å•5ç§’ä¹‹å†…æŒ‰ä¸‹æŒ‰é”®è¿›è¡Œå‡çº§
  */
 int main(void)
 {
